@@ -163,7 +163,7 @@
         currentMenuLine = -1; 
     }
 
-    // 動態載入菜單選項並綁定點擊事件
+    // 動態載入選項並綁定點擊事件
     headingOptions.forEach(option => {
         const div = document.createElement("div");
         div.className = "menu-item";
@@ -172,7 +172,7 @@
         miniMenu.appendChild(div);
     });
 
-    // 處理選項點擊事件
+    // 處理點擊事件
     miniMenu.addEventListener("click", (event) => {
         const target = event.target.closest(".menu-item"); 
         if (target) {
@@ -196,7 +196,7 @@
         const trimmedLine = lineContent.trimStart();
         const slashIndex = lineContent.indexOf('/'); // 取得 '/' 的實際索引
 
-        // 判斷顯示菜單的條件
+        // 判斷顯示的條件
         // 1. 是單一輸入事件 (非貼上等)
         // 2. 輸入的字元是 '/'
         // 3. 修剪空白後的行內容以 '/' 開頭
@@ -212,7 +212,7 @@
             showMiniMenu(coords);
             currentMenuLine = cursor.line; 
         } else if (miniMenu.style.display === "block" && currentMenuLine === cursor.line) {
-            // 判斷隱藏菜單的條件 ：
+            // 判斷隱藏的條件 ：
             // 1. 行內容不再以 '/' 開頭 
             // 2. 或者 '/' 不再是該行非空白內容的第一個字元
             // 3. 或者游標已移動到 '/' 字元之後一個位置之外
