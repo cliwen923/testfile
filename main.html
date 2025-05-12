@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Markdown 編輯器</title>
+  <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+
+    h1 {
+      color: #333;
+    }
+
+    textarea {
+      min-height: 300px;
+    }
+
+    .button-group {
+      margin-top: 10px;
+    }
+
+    button {
+      padding: 8px 16px;
+      font-size: 16px;
+      margin-right: 10px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    /* === 新增: 小型功能列 (miniMenu) 的樣式 === */
+    #miniMenu {
+      display: none; /* 預設隱藏 */
+      position: absolute; /* 絕對定位 */
+      background-color: white;
+      border: 1px solid #ccc;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      z-index: 1000; /* 確保在其他元素之上 */
+      padding: 5px;
+      border-radius: 4px;
+      min-width: 80px; /* 確保足夠寬度 */
+    }
+
+    .menu-item {
+      padding: 5px 10px;
+      cursor: pointer;
+      white-space: nowrap;
+      border-bottom: 1px solid #eee; /* 分隔線 */
+    }
+
+    .menu-item:last-child {
+      border-bottom: none; /* 最後一個項目無分隔線 */
+    }
+
+    .menu-item:hover {
+      background-color: #f0f0f0;
+    }
+
+    /* 規範菜單項內的標題樣式 */
+    .menu-item h1, .menu-item h2, .menu-item h3,
+    .menu-item h4, .menu-item h5, .menu-item h6 {
+        margin: 0;
+        padding: 0;
+        font-size: 1em;
+        font-weight: normal;
+        line-height: 1.2;
+    }
+    /* === 新增樣式結束 === */
+  </style>
+</head>
+<body>
+  <h1>Markdown 編輯器</h1>
+  <textarea id="editor"></textarea>
+  <div class="button-group">
+    <button id="saveBtn">💾 下載 .md</button>
+    <button id="clearCacheBtn">🧹 清除暫存</button>
+  </div>
+
+  <div id="miniMenu">
+    </div>
+  <script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
+  <script>
+    const STORAGE_KEY = "myMarkdownDraft";
+
+    // 初始化編輯器
+    const easyMDE = new EasyMDE({
+      element: document.getElementById("editor"),
+      spellChecker: false,
+      placeholder: "請輸入 Markdown 內容...",
+    });
+
+    // 嘗試從 localStorage 載入暫存
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      easyMDE.value(saved);
+    }
+
+    // 每次變更就更新 localStorage 暫存
+    easyMDE.codemirror.on("change", () => {
+      const markdown = easyMDE.value();
+      localStorage.setItem(STORAGE_KEY, markdown);
+    });
+
+    // 實體下載 .md
+    document.getElementById("saveBtn").addEventListener("click", () => {
+      const markdownContent = easyMDE.value();
+      const blob = new Blob([markdownContent], { type: "text/markdown;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "document.md";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    });
+
+    // 清除暫存按鈕
+    document.getElementById("clearCacheBtn").addEventListener("click", () => {
+      localStorage.removeItem(STORAGE_KEY);
+      alert("已清除暫存！");
+      easyMDE.value(""); // 清除編輯器內容
+    });
+
+
+    
+    // 斜線命令
+    const cm = easyMDE.codemirror; 
+    const miniMenu = document.getElementById("miniMenu");
+    let currentMenuLine = -1; 
+
+    // 定義標題選項
+    const headingOptions = [
+      { text: "H1", value: "# " },
+      { text: "H2", value: "## " },
+      { text: "H3", value: "### " },
+      { text: "H4", value: "#### " },
+      { text: "H5", value: "##### " },
+      { text: "H6", value: "###### " },
+    ];
+
+    // 顯示小型功能列
+    function showMiniMenu(coords) {
+        miniMenu.style.display = "block";
+        miniMenu.style.top = (coords.bottom + 5) + "px"; 
+        miniMenu.style.left = coords.left + "px";
+    }
+
+    // 隱藏小型功能列
+    function hideMiniMenu() {
+        miniMenu.style.display = "none";
+        currentMenuLine = -1; 
+    }
+
+    // 動態載入菜單選項並綁定點擊事件
+    headingOptions.forEach(option => {
+        const div = document.createElement("div");
+        div.className = "menu-item";
+        div.dataset.value = option.value;
+        div.innerHTML = `<${option.text.toLowerCase()}>${option.text}</${option.text.toLowerCase()}>`;
+        miniMenu.appendChild(div);
+    });
+
+    // 處理選項點擊事件
+    miniMenu.addEventListener("click", (event) => {
+        const target = event.target.closest(".menu-item"); 
+        if (target) {
+            const selectedValue = target.dataset.value;
+            const cursor = cm.getCursor();
+            const lineContent = cm.getLine(cursor.line);
+            const slashIndex = lineContent.indexOf('/'); 
+
+            cm.replaceRange(selectedValue, { line: cursor.line, ch: slashIndex }, { line: cursor.line, ch: slashIndex + 1 });
+            cm.setCursor(cursor.line, slashIndex + selectedValue.length);
+            
+            hideMiniMenu(); 
+            cm.focus(); 
+        }
+    });
+
+    // 監聽編輯器內容變化
+    // 監聽編輯器內容變化
+    cm.on("change", (instance, changeObj) => {
+        const cursor = instance.getCursor();
+        const lineContent = instance.getLine(cursor.line);
+        const trimmedLine = lineContent.trimStart();
+        const slashIndex = lineContent.indexOf('/'); // 取得 '/' 的實際索引
+
+        // 判斷顯示菜單的條件
+        // 1. 是單一輸入事件 (非貼上等)
+        // 2. 輸入的字元是 '/'
+        // 3. 修剪空白後的行內容以 '/' 開頭
+        // 4. '/' 是修剪後內容的第一個字元 (即行首的非空白字元是 '/')
+        // 5. 游標位於剛輸入的 '/' 之後
+        // 6. 目前沒有活躍的菜單
+        if (changeObj.origin === "+input" && changeObj.text[0] === '/' &&
+            trimmedLine.startsWith('/') && lineContent.indexOf(trimmedLine) === slashIndex &&
+            cursor.ch === slashIndex + 1 &&
+            currentMenuLine === -1) {
+
+            const coords = instance.charCoords({ line: cursor.line, ch: slashIndex }, "page");
+            showMiniMenu(coords);
+            currentMenuLine = cursor.line; 
+        } else if (miniMenu.style.display === "block" && currentMenuLine === cursor.line) {
+            // 判斷隱藏菜單的條件 ：
+            // 1. 行內容不再以 '/' 開頭 
+            // 2. 或者 '/' 不再是該行非空白內容的第一個字元
+            // 3. 或者游標已移動到 '/' 字元之後一個位置之外
+            if (!trimmedLine.startsWith('/') || lineContent.indexOf(trimmedLine) !== slashIndex || cursor.ch > slashIndex + 1) {
+                hideMiniMenu();
+            }
+        }
+    });
+
+    // 游標移動
+    cm.on("cursorActivity", (instance) => {
+        const cursor = instance.getCursor();
+        if (miniMenu.style.display === "block" && currentMenuLine !== -1) { 
+            if (cursor.line !== currentMenuLine) {//換行則取消列表
+                hideMiniMenu();
+            } else {
+                const lineContent = instance.getLine(cursor.line);
+                const trimmedLine = lineContent.trimStart();
+                const slashIndex = lineContent.indexOf('/'); // 取得 '/' 的實際索引
+
+                if (!trimmedLine.startsWith('/') || lineContent.indexOf(trimmedLine) !== slashIndex || cursor.ch > slashIndex + 1) {
+                    hideMiniMenu();
+                }
+            }
+        }
+    });
+
+  </script>
+</body>
+</html>
